@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 // NOTE: This file is unconditionally compiled because RSABSSA is implemented using BoringSSL on all platforms.
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 import Crypto
 
 struct DigestType {
@@ -31,13 +31,13 @@ struct DigestType {
         self.digestLength = digestLength
     }
 
-    static let sha1 = DigestType(CCryptoBoringSSL_EVP_sha1(), NID_sha1, digestLength: 20)
+    static let sha1 = DigestType(EVP_sha1(), NID_sha1, digestLength: 20)
 
-    static let sha256 = DigestType(CCryptoBoringSSL_EVP_sha256(), NID_sha256, digestLength: 32)
+    static let sha256 = DigestType(EVP_sha256(), NID_sha256, digestLength: 32)
 
-    static let sha384 = DigestType(CCryptoBoringSSL_EVP_sha384(), NID_sha384, digestLength: 48)
+    static let sha384 = DigestType(EVP_sha384(), NID_sha384, digestLength: 48)
 
-    static let sha512 = DigestType(CCryptoBoringSSL_EVP_sha512(), NID_sha512, digestLength: 64)
+    static let sha512 = DigestType(EVP_sha512(), NID_sha512, digestLength: 64)
 
     init<DGT: Digest>(forDigestType digestType: DGT.Type = DGT.self) throws {
         switch digestType {

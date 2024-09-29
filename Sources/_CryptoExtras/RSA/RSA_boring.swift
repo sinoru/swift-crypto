@@ -15,7 +15,7 @@ import Foundation
 import Crypto
 
 // NOTE: This file is unconditionally compiled because RSABSSA is implemented using BoringSSL on all platforms.
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 @_implementationOnly import CCryptoBoringSSLShims
 
 internal struct BoringSSLRSAPublicKey: Sendable {
@@ -156,14 +156,14 @@ extension BoringSSLRSAPublicKey {
         }
 
         fileprivate init(copying other: Backing) {
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
-            let rsaPublicKey = CCryptoBoringSSL_RSAPublicKey_dup(CCryptoBoringSSL_EVP_PKEY_get0_RSA(other.pointer))
-            CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
+            self.pointer = EVP_PKEY_new()
+            let rsaPublicKey = RSAPublicKey_dup(EVP_PKEY_get0_RSA(other.pointer))
+            EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
         }
 
         fileprivate init(pemRepresentation: String) throws {
             var pemRepresentation = pemRepresentation
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
+            self.pointer = EVP_PKEY_new()
 
             // There are two encodings for RSA public keys: PKCS#1 and the SPKI form.
             // The SPKI form is what we support for EC keys, so we try that first, then we
@@ -171,26 +171,26 @@ extension BoringSSLRSAPublicKey {
             do {
                 let rsaPublicKey = try pemRepresentation.withUTF8 { utf8Ptr in
                     return try BIOHelper.withReadOnlyMemoryBIO(wrapping: utf8Ptr) { bio in
-                        guard let key = CCryptoBoringSSL_PEM_read_bio_RSA_PUBKEY(bio, nil, nil, nil) else {
+                        guard let key = PEM_read_bio_RSA_PUBKEY(bio, nil, nil, nil) else {
                             throw CryptoKitError.internalBoringSSLError()
                         }
                         return key
                     }
                 }
-                CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
+                EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
             } catch {
                 do {
                     let rsaPublicKey = try pemRepresentation.withUTF8 { utf8Ptr in
                         return try BIOHelper.withReadOnlyMemoryBIO(wrapping: utf8Ptr) { bio in
-                            guard let key = CCryptoBoringSSL_PEM_read_bio_RSAPublicKey(bio, nil, nil, nil) else {
+                            guard let key = PEM_read_bio_RSAPublicKey(bio, nil, nil, nil) else {
                                 throw CryptoKitError.internalBoringSSLError()
                             }
                             return key
                         }
                     }
-                    CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
+                    EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
                 } catch {
-                    CCryptoBoringSSL_EVP_PKEY_free(self.pointer)
+                    EVP_PKEY_free(self.pointer)
                     throw error
                 }
             }
@@ -206,56 +206,56 @@ extension BoringSSLRSAPublicKey {
         }
 
         private init<Bytes: ContiguousBytes>(contiguousDerRepresentation: Bytes) throws {
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
+            self.pointer = EVP_PKEY_new()
             // There are two encodings for RSA public keys: PKCS#1 and the SPKI form.
             // The SPKI form is what we support for EC keys, so we try that first, then we
             // fall back to the PKCS#1 form if that parse fails.
             do {
                 let rsaPublicKey = try contiguousDerRepresentation.withUnsafeBytes { derPtr in
                     return try BIOHelper.withReadOnlyMemoryBIO(wrapping: derPtr) { bio in
-                        guard let key = CCryptoBoringSSL_d2i_RSA_PUBKEY_bio(bio, nil) else {
+                        guard let key = d2i_RSA_PUBKEY_bio(bio, nil) else {
                             throw CryptoKitError.internalBoringSSLError()
                         }
                         return key
                     }
                 }
-                CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
+                EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
             } catch {
                 do {
                     let rsaPublicKey = try contiguousDerRepresentation.withUnsafeBytes { derPtr in
                         return try BIOHelper.withReadOnlyMemoryBIO(wrapping: derPtr) { bio in
-                            guard let key = CCryptoBoringSSL_d2i_RSAPublicKey_bio(bio, nil) else {
+                            guard let key = d2i_RSAPublicKey_bio(bio, nil) else {
                                 throw CryptoKitError.internalBoringSSLError()
                             }
                             return key
                         }
                     }
-                    CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
+                    EVP_PKEY_assign_RSA(self.pointer, rsaPublicKey)
                 } catch {
-                    CCryptoBoringSSL_EVP_PKEY_free(self.pointer)
+                    EVP_PKEY_free(self.pointer)
                     throw error
                 }
             }
         }
 
         fileprivate init(n: some ContiguousBytes, e: some ContiguousBytes) throws {
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
+            self.pointer = EVP_PKEY_new()
             let n = try ArbitraryPrecisionInteger(bytes: n)
             let e = try ArbitraryPrecisionInteger(bytes: e)
 
             // Create BoringSSL RSA key.
             guard let rsaPtr = n.withUnsafeBignumPointer({ n in
                 e.withUnsafeBignumPointer { e in
-                    CCryptoBoringSSL_RSA_new_public_key(n, e)
+                    RSA_new_public_key(n, e)
                 }
             }) else { throw CryptoKitError.internalBoringSSLError() }
-            CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPtr)
+            EVP_PKEY_assign_RSA(self.pointer, rsaPtr)
         }
 
         fileprivate var pkcs1DERRepresentation: Data {
             return BIOHelper.withWritableMemoryBIO { bio in
-                let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-                let rc = CCryptoBoringSSL_i2d_RSAPublicKey_bio(bio, rsaPublicKey)
+                let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
+                let rc = i2d_RSAPublicKey_bio(bio, rsaPublicKey)
                 precondition(rc == 1)
 
                 return try! Data(copyingMemoryBIO: bio)
@@ -268,8 +268,8 @@ extension BoringSSLRSAPublicKey {
 
         fileprivate var derRepresentation: Data {
             return BIOHelper.withWritableMemoryBIO { bio in
-                let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-                let rc = CCryptoBoringSSL_i2d_RSA_PUBKEY_bio(bio, rsaPublicKey)
+                let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
+                let rc = i2d_RSA_PUBKEY_bio(bio, rsaPublicKey)
                 precondition(rc == 1)
 
                 return try! Data(copyingMemoryBIO: bio)
@@ -281,13 +281,13 @@ extension BoringSSLRSAPublicKey {
         }
 
         fileprivate var keySizeInBits: Int {
-            let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-            return Int(CCryptoBoringSSL_RSA_size(rsaPublicKey)) * 8
+            let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
+            return Int(RSA_size(rsaPublicKey)) * 8
         }
 
         fileprivate func isValidSignature<D: Digest>(_ signature: _RSA.Signing.RSASignature, for digest: D, padding: _RSA.Signing.Padding) -> Bool {
             let hashDigestType = try! DigestType(forDigestType: D.self)
-            let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
+            let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
 
             return signature.withUnsafeBytes { signaturePtr in
                 let rc: CInt = digest.withUnsafeBytes { digestPtr in
@@ -330,29 +330,29 @@ extension BoringSSLRSAPublicKey {
         }
         
         fileprivate func encrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
-            let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-            let outputSize = Int(CCryptoBoringSSL_RSA_size(rsaPublicKey))
+            let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
+            let outputSize = Int(RSA_size(rsaPublicKey))
             var output = Data(count: outputSize)
 
             let contiguousData: ContiguousBytes = data.regions.count == 1 ? data.regions.first! : Array(data)
             try output.withUnsafeMutableBytes { bufferPtr in
                 try contiguousData.withUnsafeBytes { dataPtr in
                     // `nil` 'engine' defaults to the standard implementation with no hooks
-                    let ctx = CCryptoBoringSSL_EVP_PKEY_CTX_new(self.pointer, nil)
+                    let ctx = EVP_PKEY_CTX_new(self.pointer, nil)
                     defer {
-                        CCryptoBoringSSL_EVP_PKEY_CTX_free(ctx)
+                        EVP_PKEY_CTX_free(ctx)
                     }
 
-                    CCryptoBoringSSL_EVP_PKEY_encrypt_init(ctx)
+                    EVP_PKEY_encrypt_init(ctx)
 
                     switch padding.backing {
                     case let .pkcs1_oaep(digest):
-                        CCryptoBoringSSL_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING)
+                        EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING)
                         switch digest {
                         case .sha1:
                             break // default case, nothing to set
                         case .sha256:
-                            CCryptoBoringSSL_EVP_PKEY_CTX_set_rsa_oaep_md(ctx, CCryptoBoringSSL_EVP_sha256())
+                            EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256())
                         }
                     }
 
@@ -378,10 +378,10 @@ extension BoringSSLRSAPublicKey {
             _ message: _RSA.BlindSigning.PreparedMessage,
             parameters: _RSA.BlindSigning.Parameters<H>
         ) throws -> _RSA.BlindSigning.BlindingResult {
-            let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-            let modulusByteCount = Int(CCryptoBoringSSL_RSA_size(rsaPublicKey))
-            let e = try ArbitraryPrecisionInteger(copying: CCryptoBoringSSL_RSA_get0_e(rsaPublicKey))
-            let n = try ArbitraryPrecisionInteger(copying: CCryptoBoringSSL_RSA_get0_n(rsaPublicKey))
+            let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
+            let modulusByteCount = Int(RSA_size(rsaPublicKey))
+            let e = try ArbitraryPrecisionInteger(copying: RSA_get0_e(rsaPublicKey))
+            let n = try ArbitraryPrecisionInteger(copying: RSA_get0_n(rsaPublicKey))
             let finiteField = try FiniteFieldArithmeticContext(fieldSize: n)
 
             // 1. encoded_msg = EMSA-PSS-ENCODE(msg, bit_len(n)) with Hash, MGF, and salt_len as defined in the parameters
@@ -431,9 +431,9 @@ extension BoringSSLRSAPublicKey {
             blindingInverse: _RSA.BlindSigning.BlindingInverse,
             parameters: _RSA.BlindSigning.Parameters<H>
         ) throws -> _RSA.Signing.RSASignature {
-            let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-            let modulusByteCount = Int(CCryptoBoringSSL_RSA_size(rsaPublicKey))
-            let n = try ArbitraryPrecisionInteger(copying: CCryptoBoringSSL_RSA_get0_n(rsaPublicKey))
+            let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
+            let modulusByteCount = Int(RSA_size(rsaPublicKey))
+            let n = try ArbitraryPrecisionInteger(copying: RSA_get0_n(rsaPublicKey))
             let finiteField = try FiniteFieldArithmeticContext(fieldSize: n)
 
             // 1. If len(blind_sig) != modulus_len, raise an "unexpected input size" error and stop
@@ -463,7 +463,7 @@ extension BoringSSLRSAPublicKey {
         }
 
         deinit {
-            CCryptoBoringSSL_EVP_PKEY_free(self.pointer)
+            EVP_PKEY_free(self.pointer)
         }
     }
 }
@@ -473,25 +473,25 @@ extension BoringSSLRSAPrivateKey {
         private let pointer: OpaquePointer
 
         fileprivate init(copying other: Backing) {
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
-            let rsaPrivateKey = CCryptoBoringSSL_RSAPrivateKey_dup(CCryptoBoringSSL_EVP_PKEY_get0_RSA(other.pointer))
-            CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPrivateKey)
+            self.pointer = EVP_PKEY_new()
+            let rsaPrivateKey = RSAPrivateKey_dup(EVP_PKEY_get0_RSA(other.pointer))
+            EVP_PKEY_assign_RSA(self.pointer, rsaPrivateKey)
         }
 
         fileprivate init(pemRepresentation: String) throws {
             var pemRepresentation = pemRepresentation
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
+            self.pointer = EVP_PKEY_new()
 
             let rsaPrivateKey = try pemRepresentation.withUTF8 { utf8Ptr in
                 return try BIOHelper.withReadOnlyMemoryBIO(wrapping: utf8Ptr) { bio in
-                    guard let key = CCryptoBoringSSL_PEM_read_bio_RSAPrivateKey(bio, nil, nil, nil) else {
+                    guard let key = PEM_read_bio_RSAPrivateKey(bio, nil, nil, nil) else {
                         throw CryptoKitError.internalBoringSSLError()
                     }
 
                     return key
                 }
             }
-            CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPrivateKey)
+            EVP_PKEY_assign_RSA(self.pointer, rsaPrivateKey)
         }
 
         fileprivate convenience init<Bytes: DataProtocol>(derRepresentation: Bytes) throws {
@@ -504,7 +504,7 @@ extension BoringSSLRSAPrivateKey {
         }
 
         private init<Bytes: ContiguousBytes>(contiguousDerRepresentation: Bytes) throws {
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
+            self.pointer = EVP_PKEY_new()
             let rsaPrivateKey: OpaquePointer
             if let pointer = Backing.pkcs8DERPrivateKey(contiguousDerRepresentation) {
                 rsaPrivateKey = pointer
@@ -513,12 +513,12 @@ extension BoringSSLRSAPrivateKey {
             } else {
                 throw CryptoKitError.internalBoringSSLError()
             }
-            CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPrivateKey)
+            EVP_PKEY_assign_RSA(self.pointer, rsaPrivateKey)
         }
 
 
         fileprivate init(n: some ContiguousBytes, e: some ContiguousBytes, d: some ContiguousBytes, p: some ContiguousBytes, q: some ContiguousBytes) throws {
-            self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
+            self.pointer = EVP_PKEY_new()
             let n = try ArbitraryPrecisionInteger(bytes: n)
             let e = try ArbitraryPrecisionInteger(bytes: e)
             let d = try ArbitraryPrecisionInteger(bytes: d)
@@ -541,7 +541,7 @@ extension BoringSSLRSAPrivateKey {
                                 dp.withUnsafeBignumPointer { dp in
                                     dq.withUnsafeBignumPointer { dq in
                                         qi.withUnsafeBignumPointer { qi in
-                                            CCryptoBoringSSL_RSA_new_private_key(n, e, d, p, q, dp, dq, qi)
+                                            RSA_new_private_key(n, e, d, p, q, dp, dq, qi)
                                         }
                                     }
                                 }
@@ -550,26 +550,26 @@ extension BoringSSLRSAPrivateKey {
                     }
                 }
             }) else { throw CryptoKitError.internalBoringSSLError() }
-            CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, rsaPtr)
+            EVP_PKEY_assign_RSA(self.pointer, rsaPtr)
         }
 
         private static func pkcs8DERPrivateKey<Bytes: ContiguousBytes>(_ derRepresentation: Bytes) -> OpaquePointer? {
             return derRepresentation.withUnsafeBytes { derPtr in
                 return BIOHelper.withReadOnlyMemoryBIO(wrapping: derPtr) { bio in
-                    guard let p8 = CCryptoBoringSSL_d2i_PKCS8_PRIV_KEY_INFO_bio(bio, nil) else {
+                    guard let p8 = d2i_PKCS8_PRIV_KEY_INFO_bio(bio, nil) else {
                         return nil
                     }
                     defer {
-                        CCryptoBoringSSL_PKCS8_PRIV_KEY_INFO_free(p8)
+                        PKCS8_PRIV_KEY_INFO_free(p8)
                     }
 
-                    guard let pkey = CCryptoBoringSSL_EVP_PKCS82PKEY(p8) else {
+                    guard let pkey = EVP_PKCS82PKEY(p8) else {
                         return nil
                     }
                     defer {
-                        CCryptoBoringSSL_EVP_PKEY_free(pkey)
+                        EVP_PKEY_free(pkey)
                     }
-                    return CCryptoBoringSSL_EVP_PKEY_get1_RSA(pkey)
+                    return EVP_PKEY_get1_RSA(pkey)
                 }
             }
         }
@@ -577,18 +577,18 @@ extension BoringSSLRSAPrivateKey {
         private static func pkcs1DERPrivateKey<Bytes: ContiguousBytes>(_ derRepresentation: Bytes) -> OpaquePointer? {
             return derRepresentation.withUnsafeBytes { derPtr in
                 return BIOHelper.withReadOnlyMemoryBIO(wrapping: derPtr) { bio in
-                    return CCryptoBoringSSL_d2i_RSAPrivateKey_bio(bio, nil)
+                    return d2i_RSAPrivateKey_bio(bio, nil)
                 }
             }
         }
 
         fileprivate init(keySize: _RSA.Signing.KeySize) throws {
-            let pointer = CCryptoBoringSSL_RSA_new()!
+            let pointer = RSA_new()!
 
             // This do block is used to avoid the risk of leaking the above pointer.
             do {
                 let rc = RSA_F4.withBignumPointer { bignumPtr in
-                    CCryptoBoringSSL_RSA_generate_key_ex(
+                    RSA_generate_key_ex(
                         pointer, CInt(keySize.bitCount), bignumPtr, nil
                     )
                 }
@@ -597,18 +597,18 @@ extension BoringSSLRSAPrivateKey {
                     throw CryptoKitError.internalBoringSSLError()
                 }
 
-                self.pointer = CCryptoBoringSSL_EVP_PKEY_new()
-                CCryptoBoringSSL_EVP_PKEY_assign_RSA(self.pointer, pointer)
+                self.pointer = EVP_PKEY_new()
+                EVP_PKEY_assign_RSA(self.pointer, pointer)
             } catch {
-                CCryptoBoringSSL_RSA_free(pointer)
+                RSA_free(pointer)
                 throw error
             }
         }
 
         fileprivate var derRepresentation: Data {
             return BIOHelper.withWritableMemoryBIO { bio in
-                let rsaPrivateKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-                let rc = CCryptoBoringSSL_i2d_RSAPrivateKey_bio(bio, rsaPrivateKey)
+                let rsaPrivateKey = EVP_PKEY_get0_RSA(self.pointer)
+                let rc = i2d_RSAPrivateKey_bio(bio, rsaPrivateKey)
                 precondition(rc == 1)
 
                 return try! Data(copyingMemoryBIO: bio)
@@ -617,8 +617,8 @@ extension BoringSSLRSAPrivateKey {
 
         fileprivate var pemRepresentation: String {
             return BIOHelper.withWritableMemoryBIO { bio in
-                let rsaPrivateKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-                let rc = CCryptoBoringSSL_PEM_write_bio_RSAPrivateKey(bio, rsaPrivateKey, nil, nil, 0, nil, nil)
+                let rsaPrivateKey = EVP_PKEY_get0_RSA(self.pointer)
+                let rc = PEM_write_bio_RSAPrivateKey(bio, rsaPrivateKey, nil, nil, 0, nil, nil)
                 precondition(rc == 1)
 
                 return try! String(copyingUTF8MemoryBIO: bio)
@@ -627,13 +627,13 @@ extension BoringSSLRSAPrivateKey {
 
         fileprivate var pkcs8PEMRepresentation: String {
             return BIOHelper.withWritableMemoryBIO { bio in
-                let evp = CCryptoBoringSSL_EVP_PKEY_new()
+                let evp = EVP_PKEY_new()
                 defer {
-                    CCryptoBoringSSL_EVP_PKEY_free(evp)
+                    EVP_PKEY_free(evp)
                 }
-                let rsaPrivateKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-                CCryptoBoringSSL_EVP_PKEY_set1_RSA(evp, rsaPrivateKey)
-                let rc = CCryptoBoringSSL_PEM_write_bio_PKCS8PrivateKey(bio, evp, nil, nil, 0, nil, nil)
+                let rsaPrivateKey = EVP_PKEY_get0_RSA(self.pointer)
+                EVP_PKEY_set1_RSA(evp, rsaPrivateKey)
+                let rc = PEM_write_bio_PKCS8PrivateKey(bio, evp, nil, nil, 0, nil, nil)
                 precondition(rc == 1)
 
                 return try! String(copyingUTF8MemoryBIO: bio)
@@ -641,14 +641,14 @@ extension BoringSSLRSAPrivateKey {
         }
 
         fileprivate var keySizeInBits: Int {
-            let rsaPrivateKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-            return Int(CCryptoBoringSSL_RSA_size(rsaPrivateKey)) * 8
+            let rsaPrivateKey = EVP_PKEY_get0_RSA(self.pointer)
+            return Int(RSA_size(rsaPrivateKey)) * 8
         }
 
         fileprivate var publicKey: BoringSSLRSAPublicKey {
-            let pkey = CCryptoBoringSSL_EVP_PKEY_new()!
-            let rsaPublicKey = CCryptoBoringSSL_RSAPublicKey_dup(CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer))
-            CCryptoBoringSSL_EVP_PKEY_assign_RSA(pkey, rsaPublicKey)
+            let pkey = EVP_PKEY_new()!
+            let rsaPublicKey = RSAPublicKey_dup(EVP_PKEY_get0_RSA(self.pointer))
+            EVP_PKEY_assign_RSA(pkey, rsaPublicKey)
             let backing = BoringSSLRSAPublicKey.Backing(
                 takingOwnershipOf: pkey
             )
@@ -656,9 +656,9 @@ extension BoringSSLRSAPrivateKey {
         }
 
         fileprivate func signature<D: Digest>(for digest: D, padding: _RSA.Signing.Padding) throws -> _RSA.Signing.RSASignature {
-            let rsaPrivateKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
+            let rsaPrivateKey = EVP_PKEY_get0_RSA(self.pointer)
             let hashDigestType = try DigestType(forDigestType: D.self)
-            let outputSize = Int(CCryptoBoringSSL_RSA_size(rsaPrivateKey))
+            let outputSize = Int(RSA_size(rsaPrivateKey))
 
             let output = try Array<UInt8>(unsafeUninitializedCapacity: outputSize) { bufferPtr, length in
                 var outputLength = 0
@@ -713,27 +713,27 @@ extension BoringSSLRSAPrivateKey {
         }
 
         fileprivate func decrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
-            let rsaPrivateKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-            let outputSize = Int(CCryptoBoringSSL_RSA_size(rsaPrivateKey))
+            let rsaPrivateKey = EVP_PKEY_get0_RSA(self.pointer)
+            let outputSize = Int(RSA_size(rsaPrivateKey))
             var output = Data(count: outputSize)
 
             let contiguousData: ContiguousBytes = data.regions.count == 1 ? data.regions.first! : Array(data)
             let writtenLength: CInt = try output.withUnsafeMutableBytes { bufferPtr in
                 try contiguousData.withUnsafeBytes { dataPtr in
-                    let ctx = CCryptoBoringSSL_EVP_PKEY_CTX_new(self.pointer, nil)
+                    let ctx = EVP_PKEY_CTX_new(self.pointer, nil)
                     defer {
-                        CCryptoBoringSSL_EVP_PKEY_CTX_free(ctx)
+                        EVP_PKEY_CTX_free(ctx)
                     }
 
-                    CCryptoBoringSSL_EVP_PKEY_decrypt_init(ctx)
+                    EVP_PKEY_decrypt_init(ctx)
                     switch padding.backing {
                     case let .pkcs1_oaep(digest):
-                        CCryptoBoringSSL_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING)
+                        EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING)
                         switch digest {
                         case .sha1:
                             break // default case, nothing to set
                         case .sha256:
-                            CCryptoBoringSSL_EVP_PKEY_CTX_set_rsa_oaep_md(ctx, CCryptoBoringSSL_EVP_sha256())
+                            EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256())
                         }
                     }
 
@@ -761,8 +761,8 @@ extension BoringSSLRSAPrivateKey {
         }
 
         fileprivate func blindSignature<D: DataProtocol>(for message: D) throws -> _RSA.BlindSigning.BlindSignature {
-            let rsaPrivateKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
-            let signatureByteCount = Int(CCryptoBoringSSL_RSA_size(rsaPrivateKey))
+            let rsaPrivateKey = EVP_PKEY_get0_RSA(self.pointer)
+            let signatureByteCount = Int(RSA_size(rsaPrivateKey))
 
             guard message.count == signatureByteCount else {
                 throw CryptoKitError.incorrectParameterSize
@@ -774,7 +774,7 @@ extension BoringSSLRSAPrivateKey {
                 try messageBytes.withUnsafeBytes { messageBufferPtr in
                     /// NOTE: BoringSSL promotes the use of `RSA_sign_raw` over `RSA_private_encrypt`.
                     var outputCount = 0
-                    guard CCryptoBoringSSL_RSA_sign_raw(
+                    guard RSA_sign_raw(
                         rsaPrivateKey,
                         &outputCount,
                         signatureBufferPtr.baseAddress,
@@ -783,7 +783,7 @@ extension BoringSSLRSAPrivateKey {
                         messageBufferPtr.count,
                         RSA_NO_PADDING
                     ) == 1 else {
-                        switch ERR_GET_REASON(CCryptoBoringSSL_ERR_peek_last_error()) {
+                        switch ERR_GET_REASON(ERR_peek_last_error()) {
                         case RSA_R_DATA_TOO_LARGE_FOR_MODULUS:
                             throw CryptoKitError(_RSA.BlindSigning.ProtocolError.messageRepresentativeOutOfRange)
                         default:
@@ -805,10 +805,10 @@ extension BoringSSLRSAPrivateKey {
             try signature.withUnsafeBytes { signatureBufferPtr in
                 try blindedMessage.withUnsafeBytes { blindedMessageBufferPtr in
                     try withUnsafeTemporaryAllocation(byteCount: blindedMessageBufferPtr.count, alignment: 1) { verificationBufferPtr in
-                        let rsaPublicKey = CCryptoBoringSSL_EVP_PKEY_get0_RSA(self.pointer)
+                        let rsaPublicKey = EVP_PKEY_get0_RSA(self.pointer)
                         var outputCount = 0
                         /// NOTE: BoringSSL promotes the use of `RSA_verify_raw` over `RSA_public_decrypt`.
-                        guard CCryptoBoringSSL_RSA_verify_raw(
+                        guard RSA_verify_raw(
                             rsaPublicKey,
                             &outputCount,
                             verificationBufferPtr.baseAddress,
@@ -831,7 +831,7 @@ extension BoringSSLRSAPrivateKey {
         }
 
         deinit {
-            CCryptoBoringSSL_EVP_PKEY_free(self.pointer)
+            EVP_PKEY_free(self.pointer)
         }
     }
 }
@@ -852,7 +852,7 @@ enum BlindSigningHelpers {
                     var outputCount = 0
                     guard
                         /// NOTE: BoringSSL promotes the use of `RSA_verify_raw` over `RSA_public_decrypt`.
-                        CCryptoBoringSSL_RSA_verify_raw(
+                        RSA_verify_raw(
                             rsaPublicKey,
                             &outputCount,
                             encodedMessageBufferPtr.baseAddress,
@@ -862,7 +862,7 @@ enum BlindSigningHelpers {
                             RSA_NO_PADDING
                         ) == 1,
                         outputCount == modulusByteCount,
-                        CCryptoBoringSSL_RSA_verify_PKCS1_PSS_mgf1(
+                        RSA_verify_PKCS1_PSS_mgf1(
                             rsaPublicKey,
                             messageHashBufferPtr.baseAddress,
                             hashDigestType.dispatchTable,
@@ -886,7 +886,7 @@ enum BlindSigningHelpers {
         try withUnsafeTemporaryAllocation(of: UInt8.self, capacity: modulusByteCount) { encodedMessageBufferPtr in
             let hashDigestType = try DigestType(forDigestType: H.Digest.self)
             guard H.hash(data: message.rawRepresentation).withUnsafeBytes({ hashBufferPtr in
-                CCryptoBoringSSL_RSA_padding_add_PKCS1_PSS_mgf1(
+                RSA_padding_add_PKCS1_PSS_mgf1(
                     rsaPublicKey,
                     encodedMessageBufferPtr.baseAddress,
                     hashBufferPtr.baseAddress,
@@ -895,7 +895,7 @@ enum BlindSigningHelpers {
                     parameters.saltLength
                 )
             }) == 1 else {
-                switch ERR_GET_REASON(CCryptoBoringSSL_ERR_peek_last_error()) {
+                switch ERR_GET_REASON(ERR_peek_last_error()) {
                 case RSA_R_DATA_TOO_LARGE_FOR_KEY_SIZE:
                     throw CryptoKitError(_RSA.BlindSigning.ProtocolError.messageTooLong)
                 default:

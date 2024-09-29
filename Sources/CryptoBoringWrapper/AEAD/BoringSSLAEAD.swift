@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 @_implementationOnly import CCryptoBoringSSLShims
 import Foundation
 
@@ -50,7 +50,7 @@ extension BoringSSLAEAD {
 
         deinit {
             withUnsafeMutablePointer(to: &self.context) { contextPointer in
-                CCryptoBoringSSL_EVP_AEAD_CTX_cleanup(contextPointer)
+                EVP_AEAD_CTX_cleanup(contextPointer)
             }
         }
     }
@@ -99,7 +99,7 @@ extension BoringSSLAEAD.AEADContext {
     /// The unsafe base call: not inlinable so that it can touch private variables.
     @usableFromInline
     func _sealContiguous(plaintext: UnsafeRawBufferPointer, noncePointer: UnsafeRawBufferPointer, authenticatedData: UnsafeRawBufferPointer) throws -> (ciphertext: Data, tag: Data) {
-        let tagByteCount = CCryptoBoringSSL_EVP_AEAD_max_overhead(self.context.aead)
+        let tagByteCount = EVP_AEAD_max_overhead(self.context.aead)
 
         // We use malloc here because we are going to call free later. We force unwrap to trigger crashes if the allocation
         // fails.
@@ -255,17 +255,17 @@ extension BoringSSLAEAD {
     var boringSSLCipher: OpaquePointer {
         switch self {
         case .aes128gcm:
-            return CCryptoBoringSSL_EVP_aead_aes_128_gcm()
+            return EVP_aead_aes_128_gcm()
         case .aes192gcm:
-            return CCryptoBoringSSL_EVP_aead_aes_192_gcm()
+            return EVP_aead_aes_192_gcm()
         case .aes256gcm:
-            return CCryptoBoringSSL_EVP_aead_aes_256_gcm()
+            return EVP_aead_aes_256_gcm()
         case .aes128gcmsiv:
-            return CCryptoBoringSSL_EVP_aead_aes_128_gcm_siv()
+            return EVP_aead_aes_128_gcm_siv()
         case .aes256gcmsiv:
-            return CCryptoBoringSSL_EVP_aead_aes_256_gcm_siv()
+            return EVP_aead_aes_256_gcm_siv()
         case .chacha20:
-            return CCryptoBoringSSL_EVP_aead_chacha20_poly1305()
+            return EVP_aead_chacha20_poly1305()
         }
     }
 }

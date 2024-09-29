@@ -14,7 +14,7 @@
 #if MODULE_IS_CRYPTO && CRYPTO_IN_SWIFTPM && !CRYPTO_IN_SWIFTPM_FORCE_BUILD_API
 @_exported import CryptoKit
 #else
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 import Foundation
 #if !MODULE_IS_CRYPTO
 import enum Crypto.CryptoKitError
@@ -39,16 +39,16 @@ class FiniteFieldArithmeticContext {
     @usableFromInline
     init(fieldSize: ArbitraryPrecisionInteger) throws {
         self.fieldSize = fieldSize
-        guard let bnCtx = CCryptoBoringSSL_BN_CTX_new() else {
+        guard let bnCtx = BN_CTX_new() else {
             throw CryptoKitError.internalBoringSSLError()
         }
-        CCryptoBoringSSL_BN_CTX_start(bnCtx)
+        BN_CTX_start(bnCtx)
         self.bnCtx = bnCtx
     }
 
     deinit {
-        CCryptoBoringSSL_BN_CTX_end(self.bnCtx)
-        CCryptoBoringSSL_BN_CTX_free(self.bnCtx)
+        BN_CTX_end(self.bnCtx)
+        BN_CTX_free(self.bnCtx)
     }
 }
 
@@ -62,7 +62,7 @@ extension FiniteFieldArithmeticContext {
         guard x.withUnsafeBignumPointer({ xPtr in
             self.fieldSize.withUnsafeBignumPointer { modPtr in
                 result.withUnsafeMutableBignumPointer { resultPtr in
-                    CCryptoBoringSSL_BN_nnmod(resultPtr, xPtr, modPtr, self.bnCtx)
+                    BN_nnmod(resultPtr, xPtr, modPtr, self.bnCtx)
                 }
             }
         }) == 1 else {
@@ -79,7 +79,7 @@ extension FiniteFieldArithmeticContext {
         let rc = input.withUnsafeBignumPointer { inputPointer in
             self.fieldSize.withUnsafeBignumPointer { fieldSizePointer in
                 output.withUnsafeMutableBignumPointer { outputPointer in
-                    CCryptoBoringSSL_BN_mod_sqr(outputPointer, inputPointer, fieldSizePointer, self.bnCtx)
+                    BN_mod_sqr(outputPointer, inputPointer, fieldSizePointer, self.bnCtx)
                 }
             }
         }
@@ -99,7 +99,7 @@ extension FiniteFieldArithmeticContext {
             y.withUnsafeBignumPointer { yPointer in
                 self.fieldSize.withUnsafeBignumPointer { fieldSizePointer in
                     output.withUnsafeMutableBignumPointer { outputPointer in
-                        CCryptoBoringSSL_BN_mod_mul(outputPointer, xPointer, yPointer, fieldSizePointer, self.bnCtx)
+                        BN_mod_mul(outputPointer, xPointer, yPointer, fieldSizePointer, self.bnCtx)
                     }
                 }
             }
@@ -120,7 +120,7 @@ extension FiniteFieldArithmeticContext {
             y.withUnsafeBignumPointer { yPointer in
                 self.fieldSize.withUnsafeBignumPointer { fieldSizePointer in
                     output.withUnsafeMutableBignumPointer { outputPointer in
-                        CCryptoBoringSSL_BN_mod_add(outputPointer, xPointer, yPointer, fieldSizePointer, self.bnCtx)
+                        BN_mod_add(outputPointer, xPointer, yPointer, fieldSizePointer, self.bnCtx)
                     }
                 }
             }
@@ -142,7 +142,7 @@ extension FiniteFieldArithmeticContext {
                 self.fieldSize.withUnsafeBignumPointer { fieldSizePointer in
                     output.withUnsafeMutableBignumPointer { outputPointer in
                         // Note the order of y and x.
-                        CCryptoBoringSSL_BN_mod_sub(outputPointer, yPointer, xPointer, fieldSizePointer, self.bnCtx)
+                        BN_mod_sub(outputPointer, yPointer, xPointer, fieldSizePointer, self.bnCtx)
                     }
                 }
             }
@@ -160,7 +160,7 @@ extension FiniteFieldArithmeticContext {
         let outputPointer = x.withUnsafeBignumPointer { xPointer in
             self.fieldSize.withUnsafeBignumPointer { fieldSizePointer in
                 // We can't pass a pointer in as BN_mod_sqrt may attempt to free it.
-                CCryptoBoringSSL_BN_mod_sqrt(nil, xPointer, fieldSizePointer, self.bnCtx)
+                BN_mod_sqrt(nil, xPointer, fieldSizePointer, self.bnCtx)
             }
         }
 
@@ -170,7 +170,7 @@ extension FiniteFieldArithmeticContext {
 
         // Ok, we own this pointer now.
         defer {
-            CCryptoBoringSSL_BN_free(outputPointer)
+            BN_free(outputPointer)
         }
 
         return try ArbitraryPrecisionInteger(copying: actualOutputPointer)
@@ -183,7 +183,7 @@ extension FiniteFieldArithmeticContext {
         guard result.withUnsafeMutableBignumPointer({ resultPtr in
             x.withUnsafeBignumPointer { xPtr in
                 self.fieldSize.withUnsafeBignumPointer { modPtr in
-                    CCryptoBoringSSL_BN_mod_inverse(resultPtr, xPtr, modPtr, self.bnCtx)
+                    BN_mod_inverse(resultPtr, xPtr, modPtr, self.bnCtx)
                 }
             }
         }) != nil else { return nil }
@@ -193,19 +193,19 @@ extension FiniteFieldArithmeticContext {
 
     @usableFromInline
     func pow(_ x: ArbitraryPrecisionInteger, _ p: ArbitraryPrecisionInteger) throws -> ArbitraryPrecisionInteger {
-        try self.pow(x, p) { r, x, p, m, ctx, _ in CCryptoBoringSSL_BN_mod_exp(r, x, p, m, ctx) }
+        try self.pow(x, p) { r, x, p, m, ctx, _ in BN_mod_exp(r, x, p, m, ctx) }
     }
 
     @usableFromInline
     func pow(secret x: ArbitraryPrecisionInteger, _ p: ArbitraryPrecisionInteger) throws -> ArbitraryPrecisionInteger {
         guard x < self.fieldSize else { throw CryptoKitError.incorrectParameterSize }
-        return try self.pow(x, p, using: CCryptoBoringSSL_BN_mod_exp_mont)
+        return try self.pow(x, p, using: BN_mod_exp_mont)
     }
 
     @usableFromInline
     func pow(secret x: ArbitraryPrecisionInteger, secret p: ArbitraryPrecisionInteger) throws -> ArbitraryPrecisionInteger {
         guard x < self.fieldSize else { throw CryptoKitError.incorrectParameterSize }
-        return try self.pow(x, p, using: CCryptoBoringSSL_BN_mod_exp_mont_consttime)
+        return try self.pow(x, p, using: BN_mod_exp_mont_consttime)
     }
 
     fileprivate func pow(
@@ -244,8 +244,8 @@ extension FiniteFieldArithmeticContext {
         try self.fieldSize.withUnsafeBignumPointer { modPtr in
             // We force unwrap here because this call can only fail if the allocator is broken, and if
             // the allocator fails we don't have long to live anyway.
-            let montCtx = CCryptoBoringSSL_BN_MONT_CTX_new_for_modulus(modPtr, self.bnCtx)!
-            defer { CCryptoBoringSSL_BN_MONT_CTX_free(montCtx) }
+            let montCtx = BN_MONT_CTX_new_for_modulus(modPtr, self.bnCtx)!
+            defer { BN_MONT_CTX_free(montCtx) }
             return try body(montCtx)
         }
     }

@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 @_implementationOnly import CCryptoBoringSSLShims
 import Crypto
 @_implementationOnly import CryptoBoringWrapper
@@ -50,7 +50,7 @@ enum OpenSSLChaCha20CTRImpl {
                     var ciphertext = Data(repeating: 0, count: plaintext.count)
 
                     ciphertext.withUnsafeMutableBytes { ciphertext in
-                        CCryptoBoringSSL_CRYPTO_chacha_20(
+                        CRYPTO_chacha_20(
                             ciphertext.baseAddress,
                             plaintext.baseAddress,
                             plaintext.count,

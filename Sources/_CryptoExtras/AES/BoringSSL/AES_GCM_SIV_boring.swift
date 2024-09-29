@@ -14,7 +14,7 @@
 
 // This is a copy ChaChaPoly_boring just with a different set aes algos
 
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 @_implementationOnly import CCryptoBoringSSLShims
 import Crypto
 @_implementationOnly import CryptoBoringWrapper

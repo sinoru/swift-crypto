@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import Crypto
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 @_implementationOnly import CCryptoBoringSSLShims
 @_implementationOnly import CryptoBoringWrapper
 import Foundation
@@ -97,15 +97,15 @@ extension AES {
             var key = AES_KEY()
 
             if permutation == .forward {
-                let rc = CCryptoBoringSSL_AES_set_encrypt_key(keyBytes.baseAddress, UInt32(keyBytes.count * 8), &key)
+                let rc = AES_set_encrypt_key(keyBytes.baseAddress, UInt32(keyBytes.count * 8), &key)
                 precondition(rc == 0)
 
-                CCryptoBoringSSL_AES_encrypt(blockBytes.baseAddress, blockBytes.baseAddress, &key)
+                AES_encrypt(blockBytes.baseAddress, blockBytes.baseAddress, &key)
             } else {
-                let rc = CCryptoBoringSSL_AES_set_decrypt_key(keyBytes.baseAddress, UInt32(keyBytes.count * 8), &key)
+                let rc = AES_set_decrypt_key(keyBytes.baseAddress, UInt32(keyBytes.count * 8), &key)
                 precondition(rc == 0)
 
-                CCryptoBoringSSL_AES_decrypt(blockBytes.baseAddress, blockBytes.baseAddress, &key)
+                AES_decrypt(blockBytes.baseAddress, blockBytes.baseAddress, &key)
             }
         }
     }

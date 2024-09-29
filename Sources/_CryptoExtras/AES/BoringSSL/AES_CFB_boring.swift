@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 import Crypto
 import Foundation
 
@@ -61,8 +61,8 @@ enum OpenSSLAESCFBImpl {
             key.withUnsafeBytes { keyBufferPtr in
                 iv.withUnsafeMutableBytes { ivBufferPtr in
                     var key = AES_KEY()
-                    precondition(CCryptoBoringSSL_AES_set_encrypt_key(keyBufferPtr.baseAddress, UInt32(keyBufferPtr.count * 8), &key) == 0)
-                    CCryptoBoringSSL_AES_cfb128_encrypt(
+                    precondition(AES_set_encrypt_key(keyBufferPtr.baseAddress, UInt32(keyBufferPtr.count * 8), &key) == 0)
+                    AES_cfb128_encrypt(
                         plaintextBufferPtr.baseAddress,
                         ciphertextBufferPtr.baseAddress,
                         plaintextBufferPtr.count,

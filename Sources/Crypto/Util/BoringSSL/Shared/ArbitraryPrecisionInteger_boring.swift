@@ -14,7 +14,7 @@
 #if MODULE_IS_CRYPTO && CRYPTO_IN_SWIFTPM && !CRYPTO_IN_SWIFTPM_FORCE_BUILD_API
 @_exported import CryptoKit
 #else
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 @_implementationOnly import CCryptoBoringSSLShims
 import Foundation
 #if !MODULE_IS_CRYPTO
@@ -55,12 +55,12 @@ extension ArbitraryPrecisionInteger {
 
         init() {
             self._backing = BIGNUM()
-            CCryptoBoringSSL_BN_init(&self._backing)
+            BN_init(&self._backing)
         }
 
         init(copying original: UnsafePointer<BIGNUM>) throws {
             self._backing = BIGNUM()
-            guard CCryptoBoringSSL_BN_copy(&self._backing, original) != nil else {
+            guard BN_copy(&self._backing, original) != nil else {
                 throw CryptoKitError.internalBoringSSLError()
             }
         }
@@ -69,7 +69,7 @@ extension ArbitraryPrecisionInteger {
             self._backing = BIGNUM()
 
             try original.withUnsafeMutableBignumPointer { bnPtr in
-                guard CCryptoBoringSSL_BN_copy(&self._backing, bnPtr) != nil else {
+                guard BN_copy(&self._backing, bnPtr) != nil else {
                     throw CryptoKitError.internalBoringSSLError()
                 }
             }
@@ -77,16 +77,16 @@ extension ArbitraryPrecisionInteger {
 
         init(_ value: Int64) {
             self._backing = BIGNUM()
-            let rc = CCryptoBoringSSL_BN_set_u64(&self._backing, value.magnitude)
+            let rc = BN_set_u64(&self._backing, value.magnitude)
             precondition(rc == 1, "Unable to allocate memory for new ArbitraryPrecisionInteger")
 
             if value < 0 {
-                CCryptoBoringSSL_BN_set_negative(&self._backing, 1)
+                BN_set_negative(&self._backing, 1)
             }
         }
 
         deinit {
-            CCryptoBoringSSL_BN_clear_free(&self._backing)
+            BN_clear_free(&self._backing)
         }
     }
 }
@@ -129,7 +129,7 @@ extension ArbitraryPrecisionInteger.BackingStorage {
                 var backingPtr: UnsafeMutablePointer<BIGNUM>? = backingPtr
                 try withUnsafeMutablePointer(to: &backingPtr) { backingPtrPtr in
                     /// `BN_hex2bin` returns the number of bytes of `in` processed or zero on error.
-                    guard CCryptoBoringSSL_BN_hex2bn(backingPtrPtr, hexStringPtr) == hexString.count else {
+                    guard BN_hex2bn(backingPtrPtr, hexStringPtr) == hexString.count else {
                         throw CryptoKitError.incorrectParameterSize
                     }
                 }
@@ -171,7 +171,7 @@ extension ArbitraryPrecisionInteger {
     /* private but @usableFromInline */ @usableFromInline static func _compare(lhs: ArbitraryPrecisionInteger, rhs: ArbitraryPrecisionInteger) -> CInt {
         lhs.withUnsafeBignumPointer { lhsPtr in
             rhs.withUnsafeBignumPointer { rhsPtr in
-                CCryptoBoringSSL_BN_cmp(lhsPtr, rhsPtr)
+                BN_cmp(lhsPtr, rhsPtr)
             }
         }
     }
@@ -179,7 +179,7 @@ extension ArbitraryPrecisionInteger {
     // This lets us check the sign of an ArbitraryPrecisionInteger.
     /* private but @usableFromInline */ @usableFromInline var _positive: Bool {
         self.withUnsafeBignumPointer {
-            CCryptoBoringSSL_BN_is_negative($0) == 0
+            BN_is_negative($0) == 0
         }
     }
 
@@ -189,7 +189,7 @@ extension ArbitraryPrecisionInteger {
         let rc = result.withUnsafeMutableBignumPointer { resultPtr in
             self.withUnsafeBignumPointer { selfPtr in
                 ArbitraryPrecisionInteger.withUnsafeBN_CTX { bnCtx in
-                    CCryptoBoringSSL_BN_sqr(resultPtr, selfPtr, bnCtx)
+                    BN_sqr(resultPtr, selfPtr, bnCtx)
                 }
             }
         }
@@ -203,7 +203,7 @@ extension ArbitraryPrecisionInteger {
         let rc = result.withUnsafeMutableBignumPointer { resultPtr in
             self.withUnsafeBignumPointer { selfPtr in
                 ArbitraryPrecisionInteger.withUnsafeBN_CTX { bnCtx in
-                    CCryptoBoringSSL_BN_sqrt(resultPtr, selfPtr, bnCtx)
+                    BN_sqrt(resultPtr, selfPtr, bnCtx)
                 }
             }
         }
@@ -217,7 +217,7 @@ extension ArbitraryPrecisionInteger {
     @usableFromInline
     var byteCount: Int {
         self._backing.withUnsafeBignumPointer {
-            Int(CCryptoBoringSSL_BN_num_bytes($0))
+            Int(BN_num_bytes($0))
         }
     }
 
@@ -225,9 +225,9 @@ extension ArbitraryPrecisionInteger {
     private static func withUnsafeBN_CTX<T>(_ body: (OpaquePointer) throws -> T) rethrows -> T {
         // We force unwrap here because this call can only fail if the allocator is broken, and if
         // the allocator fails we don't have long to live anyway.
-        let bnCtx = CCryptoBoringSSL_BN_CTX_new()!
+        let bnCtx = BN_CTX_new()!
         defer {
-            CCryptoBoringSSL_BN_CTX_free(bnCtx)
+            BN_CTX_free(bnCtx)
         }
 
         return try body(bnCtx)
@@ -286,7 +286,7 @@ extension ArbitraryPrecisionInteger: AdditiveArithmetic {
         let rc = result.withUnsafeMutableBignumPointer { resultPtr in
             lhs.withUnsafeBignumPointer { lhsPtr in
                 rhs.withUnsafeBignumPointer { rhsPtr in
-                    CCryptoBoringSSL_BN_add(resultPtr, lhsPtr, rhsPtr)
+                    BN_add(resultPtr, lhsPtr, rhsPtr)
                 }
             }
         }
@@ -299,7 +299,7 @@ extension ArbitraryPrecisionInteger: AdditiveArithmetic {
     static func += (lhs: inout ArbitraryPrecisionInteger, rhs: ArbitraryPrecisionInteger) {
         let rc = lhs.withUnsafeMutableBignumPointer { lhsPtr in
             rhs.withUnsafeBignumPointer { rhsPtr in
-                CCryptoBoringSSL_BN_add(lhsPtr, lhsPtr, rhsPtr)
+                BN_add(lhsPtr, lhsPtr, rhsPtr)
             }
         }
         precondition(rc == 1, "Unable to allocate memory for new ArbitraryPrecisionInteger")
@@ -312,7 +312,7 @@ extension ArbitraryPrecisionInteger: AdditiveArithmetic {
         let rc = result.withUnsafeMutableBignumPointer { resultPtr in
             lhs.withUnsafeBignumPointer { lhsPtr in
                 rhs.withUnsafeBignumPointer { rhsPtr in
-                    CCryptoBoringSSL_BN_sub(resultPtr, lhsPtr, rhsPtr)
+                    BN_sub(resultPtr, lhsPtr, rhsPtr)
                 }
             }
         }
@@ -325,7 +325,7 @@ extension ArbitraryPrecisionInteger: AdditiveArithmetic {
     static func -= (lhs: inout ArbitraryPrecisionInteger, rhs: ArbitraryPrecisionInteger) {
         let rc = lhs.withUnsafeMutableBignumPointer { lhsPtr in
             rhs.withUnsafeBignumPointer { rhsPtr in
-                CCryptoBoringSSL_BN_sub(lhsPtr, lhsPtr, rhsPtr)
+                BN_sub(lhsPtr, lhsPtr, rhsPtr)
             }
         }
         precondition(rc == 1, "Unable to allocate memory for new ArbitraryPrecisionInteger")
@@ -348,7 +348,7 @@ extension ArbitraryPrecisionInteger: Numeric {
         var copy = self
         copy.withUnsafeMutableBignumPointer {
             // BN_set_negative is poorly named: it should be "BN_set_sign_bit", which we set to 0.
-            CCryptoBoringSSL_BN_set_negative($0, 0)
+            BN_set_negative($0, 0)
         }
         return copy
     }
@@ -361,7 +361,7 @@ extension ArbitraryPrecisionInteger: Numeric {
             lhs.withUnsafeBignumPointer { lhsPtr in
                 rhs.withUnsafeBignumPointer { rhsPtr in
                     ArbitraryPrecisionInteger.withUnsafeBN_CTX { bnCtx in
-                        CCryptoBoringSSL_BN_mul(resultPtr, lhsPtr, rhsPtr, bnCtx)
+                        BN_mul(resultPtr, lhsPtr, rhsPtr, bnCtx)
                     }
                 }
             }
@@ -376,7 +376,7 @@ extension ArbitraryPrecisionInteger: Numeric {
         let rc = lhs.withUnsafeMutableBignumPointer { lhsPtr in
             rhs.withUnsafeBignumPointer { rhsPtr in
                 ArbitraryPrecisionInteger.withUnsafeBN_CTX { bnCtx in
-                    CCryptoBoringSSL_BN_mul(lhsPtr, lhsPtr, rhsPtr, bnCtx)
+                    BN_mul(lhsPtr, lhsPtr, rhsPtr, bnCtx)
                 }
             }
         }
@@ -397,7 +397,7 @@ extension ArbitraryPrecisionInteger: SignedNumeric {
         let signBit: CInt = self._positive ? 1 : 0
 
         self.withUnsafeMutableBignumPointer {
-            CCryptoBoringSSL_BN_set_negative($0, signBit)
+            BN_set_negative($0, signBit)
         }
     }
 }
@@ -413,7 +413,7 @@ extension ArbitraryPrecisionInteger {
             a.withUnsafeBignumPointer { aPtr in
                 b.withUnsafeBignumPointer { bPtr in
                     ArbitraryPrecisionInteger.withUnsafeBN_CTX { bnCtx in
-                        CCryptoBoringSSL_BN_gcd(resultPtr, aPtr, bPtr, bnCtx)
+                        BN_gcd(resultPtr, aPtr, bPtr, bnCtx)
                     }
                 }
             }
@@ -435,7 +435,7 @@ extension ArbitraryPrecisionInteger {
 
         guard result.withUnsafeMutableBignumPointer({ resultPtr in
             exclusiveMax.withUnsafeBignumPointer { exclusiveMaxPtr in
-                CCryptoBoringSSL_BN_rand_range_ex(resultPtr, BN_ULONG(inclusiveMin), exclusiveMaxPtr)
+                BN_rand_range_ex(resultPtr, BN_ULONG(inclusiveMin), exclusiveMaxPtr)
             }
         }) == 1 else {
             throw CryptoKitError.internalBoringSSLError()
@@ -485,15 +485,15 @@ extension Data {
 extension ArbitraryPrecisionInteger: CustomDebugStringConvertible {
     @usableFromInline
     var debugDescription: String {
-        guard let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem()) else {
+        guard let bio = BIO_new(BIO_s_mem()) else {
             return "ArbitraryPrecisionInteger: (error generating representation)"
         }
         defer {
-            CCryptoBoringSSL_BIO_free(bio)
+            BIO_free(bio)
         }
 
         let rc = self.withUnsafeBignumPointer {
-            CCryptoBoringSSL_BN_print(bio, $0)
+            BN_print(bio, $0)
         }
         guard rc == 1 else {
             return "ArbitraryPrecisionInteger: (error generating representation)"
@@ -502,7 +502,7 @@ extension ArbitraryPrecisionInteger: CustomDebugStringConvertible {
         var stringPointer: UnsafePointer<UInt8>?
         var length: Int = 0
 
-        guard CCryptoBoringSSL_BIO_mem_contents(bio, &stringPointer, &length) == 1 else {
+        guard BIO_mem_contents(bio, &stringPointer, &length) == 1 else {
             return "ArbitraryPrecisionInteger: (error generating representation)"
         }
 

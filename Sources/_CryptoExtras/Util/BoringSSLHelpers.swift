@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 // NOTE: This file is unconditionally compiled because RSABSSA is implemented using BoringSSL on all platforms.
-@_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import CBoringSSL
 @_implementationOnly import CCryptoBoringSSLShims
 import Foundation
 import Crypto
@@ -22,9 +22,9 @@ internal enum BIOHelper {
     static func withReadOnlyMemoryBIO<ReturnValue>(
         wrapping pointer: UnsafeRawBufferPointer, _ block: (UnsafeMutablePointer<BIO>) throws -> ReturnValue
     ) rethrows -> ReturnValue {
-        let bio = CCryptoBoringSSL_BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
+        let bio = BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
         defer {
-            CCryptoBoringSSL_BIO_free(bio)
+            BIO_free(bio)
         }
 
         return try block(bio)
@@ -33,18 +33,18 @@ internal enum BIOHelper {
     static func withReadOnlyMemoryBIO<ReturnValue>(
         wrapping pointer: UnsafeBufferPointer<UInt8>, _ block: (UnsafeMutablePointer<BIO>) throws -> ReturnValue
     ) rethrows -> ReturnValue {
-        let bio = CCryptoBoringSSL_BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
+        let bio = BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
         defer {
-            CCryptoBoringSSL_BIO_free(bio)
+            BIO_free(bio)
         }
 
         return try block(bio)
     }
 
     static func withWritableMemoryBIO<ReturnValue>(_ block: (UnsafeMutablePointer<BIO>) throws -> ReturnValue) rethrows -> ReturnValue {
-        let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())!
+        let bio = BIO_new(BIO_s_mem())!
         defer {
-            CCryptoBoringSSL_BIO_free(bio)
+            BIO_free(bio)
         }
 
         return try block(bio)
@@ -56,7 +56,7 @@ extension Data {
         var innerPointer: UnsafePointer<UInt8>? = nil
         var innerLength = 0
 
-        guard 1 == CCryptoBoringSSL_BIO_mem_contents(bio, &innerPointer, &innerLength) else {
+        guard 1 == BIO_mem_contents(bio, &innerPointer, &innerLength) else {
             throw CryptoKitError.internalBoringSSLError()
         }
 
@@ -69,7 +69,7 @@ extension String {
         var innerPointer: UnsafePointer<UInt8>? = nil
         var innerLength = 0
 
-        guard 1 == CCryptoBoringSSL_BIO_mem_contents(bio, &innerPointer, &innerLength) else {
+        guard 1 == BIO_mem_contents(bio, &innerPointer, &innerLength) else {
             throw CryptoKitError.internalBoringSSLError()
         }
 
@@ -82,12 +82,12 @@ extension FixedWidthInteger {
         precondition(self.bitWidth <= UInt.bitWidth)
 
         var bn = BIGNUM()
-        CCryptoBoringSSL_BN_init(&bn)
+        BN_init(&bn)
         defer {
-            CCryptoBoringSSL_BN_clear(&bn)
+            BN_clear(&bn)
         }
 
-        CCryptoBoringSSL_BN_set_word(&bn, .init(self))
+        BN_set_word(&bn, .init(self))
 
         return try block(&bn)
     }

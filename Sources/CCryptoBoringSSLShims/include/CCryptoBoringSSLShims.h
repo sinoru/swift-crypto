@@ -14,13 +14,7 @@
 #ifndef C_CRYPTO_BORINGSSL_SHIMS_H
 #define C_CRYPTO_BORINGSSL_SHIMS_H
 
-// This is for instances when `swift package generate-xcodeproj` is used as CCryptoBoringSSL
-// is treated as a framework and requires the framework's name as a prefix.
-#if __has_include(<CCryptoBoringSSL/CCryptoBoringSSL.h>)
-#include <CCryptoBoringSSL/CCryptoBoringSSL.h>
-#else
-#include <CCryptoBoringSSL.h>
-#endif
+#include <openssl/base.h>
 
 #if defined(__cplusplus)
 extern "C" {
